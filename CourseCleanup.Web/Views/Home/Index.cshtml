@@ -1,0 +1,81 @@
+﻿@{
+    ViewData["Title"] = "Home Page";
+}
+
+<img id="logo" src="~/images/cu-online.png" />
+<div id="app">
+    <div id="content">
+
+        <p>
+            <h1>Course Cleanup</h1>
+            <a href="https://ucdenver.instructure.com">https://ucdenver.instructure.com</a>
+        </p>
+        <p>
+            CourseCleanup is a web app that will allow an admin to run a query to list all unused courses for a given term range.  Unused courses have no content or activity.
+            Once the report is generated, the user will receive an email notifying them that their report is ready.  The user will be able to click a link to view the generated table of unused courses.
+            <br /><br />
+            The user will have the ability to:
+            <ul>
+                <li>Select unused courses for deletion</li>
+                <li>Delete all unused courses</li>
+            </ul>
+            The CourseCleanup app will also have a report showing all courses that were deleted using this tool.
+        </p>
+
+        <form asp-action="ExternalLogOut" method="post">
+            <button type="submit" id="LogOutLink" class="btn btn-warning">Log Out</button>
+        </form>
+        <hr />
+
+        <section id="loginForm">
+            <form>
+                @*<div class="form-group row">
+                    <label class="col-sm-2 col-form-label">Start Term</label>
+                    <div class="col-sm-10">
+                        <select v-model="startTerm" class="">
+                            <option disabled value="">Select...</option>
+                            <option v-for="term in terms" v-bind:value="term.Id">{{term.Name}}</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="form-group row">
+                    <label class="col-sm-2 col-form-label">End Term</label>
+                    <div class="col-sm-10">
+                        <select v-model="endTerm" class="">
+                            <option disabled value="">Select...</option>
+                            <option v-for="term in terms" v-bind:value="term.Id">{{term.Name}}</option>
+                        </select>
+                    </div>
+                </div>*@
+                
+                Replace with a single multi-select list.
+                
+                <div class="form-group">
+                    <button type="submit" class="btn btn-primary" v-on:click="addNewSearch">Submit</button>
+                </div>
+            </form>
+        </section>
+
+        <a asp-controller="Report" asp-action="DeletedCoursesReport">View Deleted Courses</a>
+
+        <hr />
+        <h2>Course Search Status</h2>
+        
+        <vuetable ref="vuetable" v-bind:api-url="'/Home/GetCourseSearchStatuses'" :fields="courseSearchStatusTableFields"
+                  :sort-order="courseSearchStatusTableSortOrder" :query-params="queryParams" :css="courseSearchStatusTableCss.table"
+                  pagination-path="" track-by="Id" v-on:vuetable:pagination-data="onPaginationData">
+            <template slot="actions" slot-scope="props">
+                <div class="table-button-container">
+                    <button class="btn btn-primary btn-sm" v-on:click="showReport(props.rowData)">
+                        Report
+                    </button>
+                </div>
+            </template>
+        </vuetable>
+        <vuetable-pagination ref="pagination" :css="courseSearchStatusTableCss.pagination" v-on:vuetable-pagination:change-page="onChangePage"></vuetable-pagination>
+        
+    </div>
+</div>
+
+<Script src="js/vue/Index.js"></Script>
