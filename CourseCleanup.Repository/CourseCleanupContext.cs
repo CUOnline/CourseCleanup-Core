@@ -13,8 +13,8 @@ namespace CourseCleanup.Repository
 
         public CourseCleanupContext(DbContextOptions<CourseCleanupContext> options) : base(options) { }
 
-        public DbSet<UnusedCourse> UnusedCourses { get; set; }
-        public DbSet<CourseSearchQueue> CourseSearchQueues { get; set; }
+        public DbSet<UnusedCourse> UnusedCourse { get; set; }
+        public DbSet<CourseSearchQueue> CourseSearchQueue { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {

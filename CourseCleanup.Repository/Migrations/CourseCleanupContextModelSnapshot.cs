@@ -15,7 +15,7 @@ namespace CourseCleanup.Repository.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "2.1.0-rtm-30799")
+                .HasAnnotation("ProductVersion", "2.1.4-rtm-31024")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128)
                 .HasAnnotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.IdentityColumn);
 
@@ -27,11 +27,7 @@ namespace CourseCleanup.Repository.Migrations
 
                     b.Property<DateTime>("DateCreated");
 
-                    b.Property<string>("EndTermId");
-
                     b.Property<DateTime?>("LastUpdated");
-
-                    b.Property<string>("StartTermId");
 
                     b.Property<int>("Status");
 
@@ -39,9 +35,11 @@ namespace CourseCleanup.Repository.Migrations
 
                     b.Property<string>("SubmittedByEmail");
 
+                    b.Property<string>("TermList");
+
                     b.HasKey("Id");
 
-                    b.ToTable("CourseSearchQueues");
+                    b.ToTable("CourseSearchQueue");
                 });
 
             modelBuilder.Entity("CourseCleanup.Models.UnusedCourse", b =>
@@ -74,7 +72,7 @@ namespace CourseCleanup.Repository.Migrations
 
                     b.HasIndex("CourseSearchQueueId");
 
-                    b.ToTable("UnusedCourses");
+                    b.ToTable("UnusedCourse");
                 });
 
             modelBuilder.Entity("CourseCleanup.Models.UnusedCourse", b =>

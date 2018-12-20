@@ -4,13 +4,19 @@ using System.Diagnostics;
 using System.Linq;
 using System.Linq.Dynamic.Core;
 using System.Net.Http;
+using System.Security.Claims;
 using System.Threading.Tasks;
 using CourseCleanup.Interface.BLL;
 using CourseCleanup.Models;
 using CourseCleanup.Models.Enums;
 using CourseCleanup.Web.Models;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
+using Rss.Providers.Canvas.Helpers;
 using RSS.Services.CanvasRedshift.Models;
 
 namespace CourseCleanup.Web.Controllers
@@ -19,17 +25,110 @@ namespace CourseCleanup.Web.Controllers
     {
         private readonly ICourseSearchQueueBLL courseSearchQueueBll;
         private readonly HttpClient canvasRedshiftClient;
-        public HomeController(ICourseSearchQueueBLL courseSearchQueueBll, IHttpClientFactory httpClientFactory)
+        private readonly CanvasApiAuth canvasApiAuth;
+
+        public HomeController(ICourseSearchQueueBLL courseSearchQueueBll, IHttpClientFactory httpClientFactory, IOptions<CanvasApiAuth> authOptions)
         {
             this.courseSearchQueueBll = courseSearchQueueBll;
             this.canvasRedshiftClient = httpClientFactory.CreateClient(HttpClientNames.CanvasRedshiftClient);
+            this.canvasApiAuth = authOptions.Value;
         }
 
-        public IActionResult Index()
+        public async Task<IActionResult> Index()
+        {
+            var authenticateResult = await HttpContext.AuthenticateAsync();
+
+            if (!authenticateResult.Succeeded)
+            {
+                return RedirectToAction("ExternalLogin");
+            }
+
+            var model = new HomeViewModel();
+            if (HttpContext.User.IsInRole(RoleNames.AccountAdmin) || HttpContext.User.IsInRole(RoleNames.HelpDesk))
+            {
+                model.Authorized = true;
+                model.BaseCanvasUrl = canvasApiAuth.BaseUrl;
+            }
+            else
+            {
+                // return unauthorized view
+                model.Authorized = false;
+            }
+            return View();
+        }
+
+        #region LoginHelper
+        [AllowAnonymous]
+        public ActionResult ExternalLogin(string provider)
+        {
+            // Request a redirect to the external login provider
+            return new ChallengeResult("Canvas", Url.Action("ExternalLoginCallback", "Home"));
+        }
+
+        [AllowAnonymous]
+        public ActionResult ExternalLoginCallback()
+        {
+            return RedirectToAction("Index");
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<ActionResult> ExternalLogout(string provider)
+        {
+            await HttpContext.SignOutAsync();
+            return RedirectToAction("LoggedOut");
+        }
+
+        public ActionResult LoggedOut()
         {
             return View();
         }
-        
+
+        // Used for XSRF protection when adding external logns
+        private const string XsrfKey = "XsrfId";
+
+        internal class ChallengeResult : UnauthorizedResult
+        {
+            private readonly string LoginProvider;
+            private readonly string RedirectUri;
+            private readonly string UserId;
+
+            public ChallengeResult(string provider, string redirectUri)
+                : this(provider, redirectUri, null)
+            {
+            }
+
+            public ChallengeResult(string provider, string redirectUri, string userId)
+            {
+                this.LoginProvider = provider;
+                this.RedirectUri = redirectUri;
+                this.UserId = userId;
+            }
+
+            public override void ExecuteResult(ActionContext context)
+            {
+                var properties = new AuthenticationProperties { RedirectUri = RedirectUri };
+                if (UserId != null)
+                {
+                    properties.Parameters.Add(XsrfKey, UserId);
+                }
+                context.HttpContext.ChallengeAsync(LoginProvider, properties);
+            }
+        }
+
+        private async Task<string> GetCurrentUserEmail()
+        {
+            var authenticateResult = await HttpContext.AuthenticateAsync();
+            if (authenticateResult != null)
+            {
+                var emailClaim = authenticateResult.Principal.Claims.Where(cl => cl.Type == ClaimTypes.Email).FirstOrDefault();
+
+                return emailClaim?.Value;
+            }
+
+            return string.Empty;
+        }
+        #endregion
 
         [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
         public IActionResult Error()
@@ -47,8 +146,11 @@ namespace CourseCleanup.Web.Controllers
         [HttpPost]
         public IActionResult AddNewSearch([FromBody]CourseSearchQueue newSearchQueue)
         {
+            var userClaims = User.Claims.AsQueryable();
+            var userEmail = userClaims.First(x => x.Type.Contains("emailaddress")).Value;
+
             newSearchQueue.Status = SearchStatus.New;
-            newSearchQueue.SubmittedByEmail = "current user";
+            newSearchQueue.SubmittedByEmail = userEmail ?? "";
             courseSearchQueueBll.Add(newSearchQueue);
 
             return Ok();
@@ -82,12 +184,12 @@ namespace CourseCleanup.Web.Controllers
                     x.Id,
                     x.DateCreated,
                     x.LastUpdated,
-                    TermList = GetTermList(x.TermList, enrollmentTerms),
+                    TermList = x.TermList.Length > 0 ? GetTermList(x.TermList, enrollmentTerms) : "",
                     x.SubmittedByEmail,
                     Status = GetCourseSearchStatuses(x.Status),
                     x.StatusMessage
                 });
-
+            
             return Json(new
             {
                 current_page = page,
@@ -104,7 +206,21 @@ namespace CourseCleanup.Web.Controllers
 
         private string GetTermList(string termList, List<EnrollmentTermDTO> enrollments)
         {
-            return string.Join(", ", termList.Split(",").Select(x => enrollments.First(y => y.Id.ToString() == x).Name));
+            var termArray = termList.Split(",");
+            var termStrings = new List<string>();
+
+            if (termArray.Any())
+            {
+                foreach (var term in termArray)
+                {
+                    termStrings.Add(enrollments.First(x => x.Id.ToString() == term.Trim()).Name.Replace(" ", "&nbsp;"));
+                }
+
+                return String.Join("<br />", termStrings);
+                //return string.Join(", ", termList.Split(", ").Select(x => enrollments.First(y => y.Id.ToString() == x).Name));
+            }
+
+            return "";
         }
 
         private string GetCourseSearchStatuses(SearchStatus status)
@@ -122,13 +238,6 @@ namespace CourseCleanup.Web.Controllers
             }
 
             return "Unknown";
-        }
-
-        [HttpPost]
-        public IActionResult ExternalLogOut()
-        {
-            //ToDo: Add logout functionality
-            return View();
         }
     }
 }

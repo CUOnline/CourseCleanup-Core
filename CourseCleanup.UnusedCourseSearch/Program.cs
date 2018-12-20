@@ -9,6 +9,7 @@ using CourseCleanup.BLL;
 using CourseCleanup.Interface.BLL;
 using CourseCleanup.Interface.Repository;
 using CourseCleanup.Models;
+using CourseCleanup.Models.Enums;
 using CourseCleanup.Repository;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -59,50 +60,81 @@ namespace CourseCleanup.UnusedCourseSearch
             var nextSearch = courseSearchQueueBll.GetNextSearchToProcess();
             if (nextSearch != null)
             {
+                nextSearch.Status = SearchStatus.Pending;
+                courseSearchQueueBll.Update(nextSearch);
                 SearchForUnusedCourses(nextSearch).GetAwaiter().GetResult();
             }
+
+            var sendEmailBll = provider.GetService<ISendEmailBLL>();
+
+            //sendEmailBll.SendUnusedCourseSearchReportFinishedEmailAsync(Enum.GetName(typeof(SearchStatus), nextSearch.Status)).GetAwaiter().GetResult();
         }
 
         private static async Task SearchForUnusedCourses(CourseSearchQueue nextSearch)
         {
-            var termIds = nextSearch.TermList.Split(",").Select(x => long.Parse(x));
-            var sendEmailBll = provider.GetService<ISendEmailBLL>();
-            var unusedCourseBll = provider.GetService<IUnusedCourseBLL>();
+            var courseSearchQueueBll = provider.GetService<ICourseSearchQueueBLL>();
 
-            client.BaseAddress = new Uri(canvasRedshiftSettings.BaseUrl);
-            client.DefaultRequestHeaders.Accept.Clear();
-            client.DefaultRequestHeaders.Accept.Add(
-                new MediaTypeWithQualityHeaderValue("application/json"));
-
-            var enrollmentTerms = JsonConvert.DeserializeObject<List<EnrollmentTermDTO>>(await client.GetStringAsync("EnrollmentTerm"));
-
-            var foundUnusedCourses = new List<UnusedCourse>();
-            foreach (var termId in termIds)
+            try
             {
-                var unUsedCourses = JsonConvert.DeserializeObject<List<UnusedCourseDTO>>(await client.GetStringAsync($"Courses/GetUnusedCourses?termId={termId}"));
-                foundUnusedCourses.AddRange(unUsedCourses.Select(x => new UnusedCourse()
+                var termIds = nextSearch.TermList.Split(",").Select(x => long.Parse(x));
+                //var sendEmailBll = provider.GetService<ISendEmailBLL>();
+                var unusedCourseBll = provider.GetService<IUnusedCourseBLL>();
+
+                client.BaseAddress = new Uri(canvasRedshiftSettings.BaseUrl);
+                client.DefaultRequestHeaders.Accept.Clear();
+                client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+                // Get a list of enrollment terms for matching name to id
+                var enrollmentTerms =
+                    JsonConvert.DeserializeObject<List<EnrollmentTermDTO>>(
+                        await client.GetStringAsync("EnrollmentTerm"));
+
+                // New list to place the unused courses
+                var foundUnusedCourses = new List<UnusedCourse>();
+
+                // Iterate selected term ids and add unused courses within that term to list
+                foreach (var termId in termIds)
                 {
-                    CourseId = x.Id.ToString(),
-                    CourseName = x.Name,
-                    CourseSISID = x.CanvasId.ToString(),
-                    CourseCode = x.Code,
-                    TermId = termId.ToString(),
-                    Term = enrollmentTerms.First(y => y.CanvasId == termId).Name,
-                    CourseSearchQueueId = nextSearch.Id,
-                }));
+                    var unUsedCourses =
+                        JsonConvert.DeserializeObject<List<UnusedCourseDTO>>(
+                            await client.GetStringAsync($"Courses/GetUnusedCourses?termId={termId}"));
+                    foundUnusedCourses.AddRange(unUsedCourses.Select(x => new UnusedCourse()
+                    {
+                        CourseId = x.Id.ToString(),
+                        CourseName = x.Name,
+                        CourseSISID = x.CanvasId.ToString(),
+                        CourseCode = x.Code,
+                        TermId = termId.ToString(),
+                        Term = enrollmentTerms.First(y => y.Id == termId).Name,
+                        CourseSearchQueueId = nextSearch.Id,
+                    }));
+                }
+
+                // Separate the existing courses from the new courses
+                var existingCourses = unusedCourseBll.GetAll()
+                    .Where(x => foundUnusedCourses.Any(y => y.CourseId == x.CourseId));
+
+                foreach (var course in existingCourses)
+                {
+                    course.CourseSearchQueueId = nextSearch.Id;
+                    course.Status = CourseStatus.Active;
+                }
+
+                foundUnusedCourses.RemoveAll(x => existingCourses.Any(y => y.CourseId == x.CourseId));
+
+                unusedCourseBll.AddRange(foundUnusedCourses);
+                unusedCourseBll.UpdateRange(existingCourses);
+
+                nextSearch.Status = SearchStatus.Completed;
+                courseSearchQueueBll.Update(nextSearch);
             }
-            
-            // Separate the existing courses from the new courses
-            var existingCourses = unusedCourseBll.GetAll().Where(x => foundUnusedCourses.Any(y => y.CourseId == x.CourseId));
-            foreach (var course in existingCourses)
+            catch(Exception ex)
             {
-                course.CourseSearchQueueId = nextSearch.Id;
+                nextSearch.Status = SearchStatus.Failed;
+                nextSearch.StatusMessage = ex.ToString();
+
+                courseSearchQueueBll.Update(nextSearch);
             }
-
-            foundUnusedCourses.RemoveAll(x => existingCourses.Any(y => y.CourseId == x.CourseId));
-
-            unusedCourseBll.AddRange(existingCourses);
-            unusedCourseBll.UpdateRange(existingCourses);
         }
     }
 }

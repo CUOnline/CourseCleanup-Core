@@ -6,6 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using CourseCleanup.Models;
+using CourseCleanup.Models.Enums;
 
 namespace CourseCleanup.BLL
 {
@@ -60,6 +61,16 @@ namespace CourseCleanup.BLL
             foreach (var course in unusedCourses)
             {
                 course.LastUpdated = DateTime.Now;
+            }
+
+            unusedCourseRepository.UpdateRange(unusedCourses);
+        }
+
+        public void UpdateStatusRange(IEnumerable<UnusedCourse> unusedCourses, CourseStatus status)
+        {
+            foreach (var course in unusedCourses)
+            {
+                course.Status = status;
             }
 
             unusedCourseRepository.UpdateRange(unusedCourses);

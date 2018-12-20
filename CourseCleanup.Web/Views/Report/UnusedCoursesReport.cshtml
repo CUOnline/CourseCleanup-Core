@@ -12,36 +12,47 @@
 </p>
 
 <hr />
+
+<div id="app">
+    <div id="content">
+        <vuetable ref="vuetable"
+                  :api-url="'/Report/GetUnusedCoursesReport'"
+                  :fields="unusedCoursesReportTableFields"
+                  :sort-order="unusedCoursesReportTableSortOrder"
+                  :query-params="queryParams"
+                  :css="unusedCoursesReportTableCss.table"
+                  pagination-path=""
+                  track-by="Id"
+                  v-on:vuetable:pagination-data="onPaginationData">
+            <template slot="actions" slot-scope="props">
+                <div>
+                    <button v-if="props.rowData.Status === 1" class="btn btn-danger btn-sm" v-on:click="confirmDelete(props.rowData)">
+                        Delete
+                    </button>
+                    <button v-if="props.rowData.Status === 2" class="btn btn-warning btn-sm" disabled="disabled">
+                        Pending Deletion
+                    </button>
+                    <button v-if="props.rowData.Status === 3" class="btn btn-success btn-sm" disabled="disabled">
+                        Deleted
+                    </button>
+                    <button v-if="props.rowData.Status === 4" class="btn btn-info btn-sm" disabled="disabled">
+                        Pending Reactivation
+                    </button>
+                </div>
+            </template>
+        </vuetable>
+        <vuetable-pagination ref="pagination" :css="unusedCoursesReportTableCss.pagination" v-on:vuetable-pagination:change-page="onChangePage"></vuetable-pagination>
+    </div>
+</div>
 <div>
     @using (Html.BeginForm())
     {
         @Html.AntiForgeryToken()
 
         <div class="form-group">
-            <button type="submit" class="btn btn-default">Delete All</button>
+            <button type="submit" class="btn btn-danger">Delete All</button>
         </div>
     }
 </div>
 
-
-@*@(Html.Kendo().Grid(Model.UnusedCourses)
-      .Name("grid")
-      .Columns(columns =>
-      {
-          columns.Bound(c => c.CourseCode);
-          columns.Bound(c => c.CourseName);
-          columns.Bound(c => c.CourseSISID);
-          columns.Bound(c => c.Term);
-          columns.Bound(c => c.Status);
-      })
-      .Sortable()
-      .Groupable()
-      .Filterable()
-      .Pageable(pageable => pageable
-          .PageSizes(true)
-          .ButtonCount(5))
-      .DataSource(dataSource => dataSource
-          .Ajax()
-          .PageSize(12)
-          .ServerOperation(false))
-      )*@
+<script src="~/js/vue/UnusedCoursesReport.js"></script>

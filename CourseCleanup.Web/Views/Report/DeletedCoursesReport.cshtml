@@ -11,24 +11,30 @@
 
 <hr />
 
-@*@(Html.Kendo().Grid(Model.UnusedCourses)
-      .Name("grid")
-      .Columns(columns =>
-      {
-          columns.Bound(c => c.CourseCode);
-          columns.Bound(c => c.CourseName);
-          columns.Bound(c => c.CourseSISID);
-          columns.Bound(c => c.Term);
-          columns.Bound(c => c.Status);
-      })
-      .Sortable()
-      .Groupable()
-      .Filterable()
-      .Pageable(pageable => pageable
-          .PageSizes(true)
-          .ButtonCount(5))
-      .DataSource(dataSource => dataSource
-          .Ajax()
-          .PageSize(12)
-          .ServerOperation(false))
-      )*@
+<div id="app">
+    <div id="content">
+        <vuetable ref="vuetable"
+                  :api-url="'/Report/GetDeletedCoursesReport'"
+                  :fields="deletedCoursesReportTableFields"
+                  :sort-order="deletedCoursesReportTableSortOrder"
+                  :query-params="queryParams"
+                  :css="deletedCoursesReportTableCss.table"
+                  pagination-path=""
+                  track-by="Id"
+                  v-on:vuetable:pagination-data="onPaginationData">
+            <template slot="actions" slot-scope="props">
+                <div>
+                    <button v-if="props.rowData.Status === 3" class="btn btn-danger btn-sm" v-on:click="confirmReactivate(props.rowData)">
+                        Reactivate
+                    </button>
+                    <button v-if="props.rowData.Status === 4" class="btn btn-success btn-sm" disabled="disabled">
+                        Pending Reactivation
+                    </button>
+                </div>
+            </template>
+        </vuetable>
+        <vuetable-pagination ref="pagination" :css="deletedCoursesReportTableCss.pagination" v-on:vuetable-pagination:change-page="onChangePage"></vuetable-pagination>
+    </div>
+</div>
+
+<script src="~/js/vue/DeletedCoursesReport.js"></script>

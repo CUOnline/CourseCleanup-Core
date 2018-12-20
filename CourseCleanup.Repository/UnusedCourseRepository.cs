@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using CourseCleanup.Interface.Repository;
 using CourseCleanup.Models;
+using CourseCleanup.Models.Enums;
 
 namespace CourseCleanup.Repository
 {
@@ -14,39 +15,45 @@ namespace CourseCleanup.Repository
 
         public UnusedCourse Add(UnusedCourse model)
         {
-            Context.UnusedCourses.Add(model);
+            Context.UnusedCourse.Add(model);
             Context.SaveChanges();
             return model;
         }
 
         public void AddRange(IEnumerable<UnusedCourse> unusedCourses)
         {
-            Context.UnusedCourses.AddRange(unusedCourses);
+            Context.UnusedCourse.AddRange(unusedCourses);
             Context.SaveChanges();
         }
 
         public void UpdateRange(IEnumerable<UnusedCourse> unusedCourses)
         {
-            Context.UnusedCourses.UpdateRange(unusedCourses);
+            Context.UnusedCourse.UpdateRange(unusedCourses);
             Context.SaveChanges();
         }
 
+        public void UpdateStatusRange(IEnumerable<UnusedCourse> unusedCourses, CourseStatus status)
+        {
+            Context.UnusedCourse.UpdateRange(unusedCourses);
+            Context.SaveChanges();
+        }
+
+
         public UnusedCourse Get(int modelId)
         {
-            return Context.UnusedCourses.Find(modelId);
+            return Context.UnusedCourse.Find(modelId);
         }
 
         public IQueryable<UnusedCourse> GetAll()
         {
-            return Context.UnusedCourses;
+            return Context.UnusedCourse;
         }
         
         public UnusedCourse Update(UnusedCourse model)
         {
-            Context.UnusedCourses.Update(model);
+            Context.UnusedCourse.Update(model);
             Context.SaveChanges();
             return model;
         }
-        
     }
 }

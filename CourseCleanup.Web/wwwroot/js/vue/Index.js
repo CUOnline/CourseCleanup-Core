@@ -3,13 +3,16 @@
 Array.prototype.any = function (callback) { return this.findIndex(callback) > -1; };
 
 $(document).ready(function () {
-    
     var app = new Vue({
-        el: '#app',
+        el: "#app",
+        components: {
+            Multiselect: window.VueMultiselect.default
+        },
         data: {
-            startTerm: '',
-            endTerm: '',
-            terms: [],
+            startTerm: "",
+            endTerm: "",
+            termsValue: [],
+            termsOptions: [],
             courseSearchStatusTableFields: [
                 {
                     name: 'DateCreated',
@@ -19,7 +22,7 @@ $(document).ready(function () {
                     visible: true,
                     formatter: (value) => {
                         if (!value) return "";
-                        return moment(value).format('MM-DD-YY h:mm:ss a');
+                        return moment(value).format('M/D/YY h:mm a');
                     }
                 },
                 {
@@ -30,20 +33,27 @@ $(document).ready(function () {
                     visible: true,
                     formatter: (value) => {
                         if (!value) return "";
-                        return moment(value).format('MM-DD-YY h:mm:ss a');
+                        return moment(value).format('M/D/YY h:mm a');
                     }
                 },
+                //{
+                //    name: 'StartTerm',
+                //    title: 'Start Term',
+                //    sortField: 'StartTerm',
+                //    filterable: true,
+                //    visible: true
+                //},
+                //{
+                //    name: 'EndTerm',
+                //    title: 'End Term',
+                //    sortField: 'EndTerm',
+                //    filterable: true,
+                //    visible: true
+                //},
                 {
-                    name: 'StartTerm',
-                    title: 'Start Term',
-                    sortField: 'StartTerm',
-                    filterable: true,
-                    visible: true
-                },
-                {
-                    name: 'EndTerm',
-                    title: 'End Term',
-                    sortField: 'EndTerm',
+                    name: 'TermList',
+                    title: 'Terms',
+                    sortField: 'TermList',
                     filterable: true,
                     visible: true
                 },
@@ -105,8 +115,13 @@ $(document).ready(function () {
         },
         mounted: function () {
 
-            axios.get("/Home/GetEnrollmentTerms").then(response => {
+            axios.get("Home/GetEnrollmentTerms").then(response => {
                 this.terms = response.data;
+
+                this.termsOptions = [];
+                response.data.forEach((object) => {
+                    this.termsOptions.push(object);
+                });
             });
 
             //axios.get('/Sample/GetSampleTypes')
@@ -159,14 +174,22 @@ $(document).ready(function () {
                 this.filterText = '';
                 Vue.nextTick(() => this.$refs.vuetable.refresh());
             },
-            addNewSearch: function() {
-                axios.post("/Home/AddNewSearch", { StartTermId: this.startTerm, EndTermId: this.endTerm })
+            addNewSearch: function () {
+                var termsArray = [];
+                
+                this.termsValue.forEach(function(item) {
+                    termsArray.push(item.Id);
+                });
+
+                var termsCsv = termsArray.toString();
+
+                axios.post("Home/AddNewSearch", { StartTermId: this.startTerm, EndTermId: this.endTerm, TermList: termsCsv })
                     .then(response => {
                         location.reload();
                     });
             },
-            showReport(searchId) {
-                window.location.href = '/Report/UnusedCourseSearch?searchId=' + search.Id;
+            showReport(search) {
+                window.location.href = 'Report/UnusedCoursesReport?courseSearchQueueId=' + search.Id;
             }
         }
     });

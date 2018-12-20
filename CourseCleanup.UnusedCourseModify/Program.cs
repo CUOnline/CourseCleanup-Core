@@ -1,19 +1,29 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Threading.Tasks;
 using CourseCleanup.BLL;
 using CourseCleanup.Interface.BLL;
 using CourseCleanup.Interface.Repository;
+using CourseCleanup.Models;
 using CourseCleanup.Models.Enums;
 using CourseCleanup.Repository;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
+using Newtonsoft.Json;
 
 namespace CourseCleanup.UnusedCourseModify
 {
     class Program
     {
+        private static ServiceProvider provider;
+        private static HttpClient client = new HttpClient();
+        private static CanvasRedshiftSettings canvasRedshiftSettings;
+
         static void Main(string[] args)
         {
             var services = new ServiceCollection();
@@ -24,6 +34,10 @@ namespace CourseCleanup.UnusedCourseModify
 
             var appSettings = configuration.GetSection("AppSettings");
             services.Configure<AppSettings>(appSettings);
+
+            var canvasReshiftSettingsSection = configuration.GetSection("CanvasRedshiftSettings");
+            services.Configure<CanvasRedshiftSettings>(canvasReshiftSettingsSection);
+
 
             //DB Context
             services.AddDbContext<CourseCleanupContext>(options =>
@@ -41,16 +55,37 @@ namespace CourseCleanup.UnusedCourseModify
 
             //Setup the provider for resolving dependencies
             var provider = services.BuildServiceProvider();
+            canvasRedshiftSettings = provider.GetService<IOptions<CanvasRedshiftSettings>>().Value;
 
             var sendEmailBll = provider.GetService<ISendEmailBLL>();
             var unusedCourseBll = provider.GetService<IUnusedCourseBLL>();
-            
-            var coursesPendingDeletion = unusedCourseBll.GetAll().Where(x => x.Status == CourseStatus.PendingDeletion);
 
-            foreach (var course in coursesPendingDeletion)
+            var coursesPendingDeletion = unusedCourseBll.GetAll().Where(x => x.Status == CourseStatus.PendingDeletion).ToList();
+            var coursesPendingReactivation = unusedCourseBll.GetAll().Where(x => x.Status == CourseStatus.PendingReactivation).ToList();
+            
+            client.BaseAddress = new Uri(canvasRedshiftSettings.CanvasUrl);
+            client.DefaultRequestHeaders.Accept.Clear();
+            client.DefaultRequestHeaders.Accept.Add(
+                new MediaTypeWithQualityHeaderValue("application/json"));
+
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", canvasRedshiftSettings.AuthToken);
+
+            foreach (var unusedCourse in coursesPendingDeletion)
             {
-                //ToDo: write logic to search for unused courses that are pending deletion.  Use the API to perform the deletion of a course.    
+                client.DeleteAsync($"courses/{unusedCourse.CourseId}?event=delete").GetAwaiter().GetResult();
+
+                unusedCourse.Status = CourseStatus.Deleted;
+                unusedCourseBll.Update(unusedCourse);
             }
+
+            foreach (var unusedCourse in coursesPendingReactivation)
+            {
+                client.DeleteAsync($"courses/{unusedCourse.CourseId}?event=undelete").GetAwaiter().GetResult();
+
+                unusedCourse.Status = CourseStatus.Active;
+                unusedCourseBll.Update(unusedCourse);
+            }
+
         }
 
         public static async void GetData()
