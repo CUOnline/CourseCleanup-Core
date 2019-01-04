@@ -84,7 +84,7 @@ namespace CourseCleanup.Web.Controllers
             return View();
         }
 
-        // Used for XSRF protection when adding external logns
+        // Used for XSRF protection when adding external logins
         private const string XsrfKey = "XsrfId";
 
         internal class ChallengeResult : UnauthorizedResult
