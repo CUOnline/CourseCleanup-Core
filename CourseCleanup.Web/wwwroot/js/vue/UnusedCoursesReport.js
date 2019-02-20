@@ -6,6 +6,9 @@ $(document).ready(function () {
     var app = new Vue({
         el: "#app",
         data: {
+            filter: '',
+            filterText: '',
+            additionalParams: {},
             unusedCoursesReportId: 0,
             unusedCoursesReportTableFields: [
                 {
@@ -27,9 +30,9 @@ $(document).ready(function () {
                     }
                 },
                 {
-                    name: 'CourseId',
-                    title: 'Course Id',
-                    sortField: 'CourseId',
+                    name: 'CourseCanvasId',
+                    title: 'Canvas Course Id',
+                    sortField: 'CourseCanvasId',
                     filterable: true,
                     visible: true
                 },
@@ -126,6 +129,24 @@ $(document).ready(function () {
                 axios.get("/Report/DeleteCourse/" + rowData.Id).then(response => {
                     this.$refs.vuetable.reload();
                 });
+            },
+            confirmReactivate: function (rowData) {
+                axios.get("/Report/ReactivateCourse/" + rowData.Id).then(response => {
+                    this.$refs.vuetable.reload();
+                });
+            },
+            runFilter: function () {
+                this.filterText = JSON.stringify(this.filter);
+                this.additionalParams = {
+                    'filter': this.filterText
+                };
+                Vue.nextTick(() => this.$refs.vuetable.refresh());
+            },
+            resetFilter: function () {
+                this.filter = '';
+                this.additionalParams = {};
+                this.filterText = '';
+                Vue.nextTick(() => this.$refs.vuetable.refresh());
             }
         }
     });

@@ -15,18 +15,30 @@
 
 <div id="app">
     <div id="content">
+        <div class="input-group mb-3 col-6 float-right">
+            <input v-model="filter" type="text" class="form-control" placeholder="Search" aria-label="Search">
+            <div class="input-group-append">
+                <button type="button" class="btn btn-secondary" v-on:click="resetFilter">
+                    Reset
+                </button>
+                <button type="button" class="btn btn-primary" v-on:click="runFilter">
+                    Search
+                </button>
+            </div>
+        </div>
         <vuetable ref="vuetable"
                   :api-url="'/Report/GetUnusedCoursesReport'"
                   :fields="unusedCoursesReportTableFields"
                   :sort-order="unusedCoursesReportTableSortOrder"
                   :query-params="queryParams"
+                  :append-params="additionalParams"
                   :css="unusedCoursesReportTableCss.table"
                   pagination-path=""
                   track-by="Id"
                   v-on:vuetable:pagination-data="onPaginationData">
             <template slot="actions" slot-scope="props">
                 <div>
-                    <button v-if="props.rowData.Status === 1" class="btn btn-danger btn-sm" v-on:click="confirmDelete(props.rowData)">
+                    <button v-if="props.rowData.Status === 0 || props.rowData.Status === 1" class="btn btn-danger btn-sm" v-on:click="confirmDelete(props.rowData)">
                         Delete
                     </button>
                     <button v-if="props.rowData.Status === 2" class="btn btn-warning btn-sm" disabled="disabled">
@@ -34,6 +46,9 @@
                     </button>
                     <button v-if="props.rowData.Status === 3" class="btn btn-success btn-sm" disabled="disabled">
                         Deleted
+                    </button>
+                    <button v-if="props.rowData.Status === 3" class="btn btn-danger btn-sm" v-on:click="confirmReactivate(props.rowData)">
+                        Reactivate
                     </button>
                     <button v-if="props.rowData.Status === 4" class="btn btn-info btn-sm" disabled="disabled">
                         Pending Reactivation

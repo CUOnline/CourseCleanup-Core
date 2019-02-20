@@ -13,6 +13,9 @@ namespace CourseCleanup.Models
         [Display(Name = "Course Id")]
         public string CourseId { get; set; }
 
+        [Display(Name = "Course Canvas Id")]
+        public string CourseCanvasId { get; set; }
+
         [Display(Name = "Course Name")]
         public string CourseName { get; set; }
 
@@ -21,6 +24,8 @@ namespace CourseCleanup.Models
 
         [Display(Name = "Course Code")]
         public string CourseCode { get; set; }
+
+        public string AccountId { get; set; }
 
         public string TermId { get; set; }
 

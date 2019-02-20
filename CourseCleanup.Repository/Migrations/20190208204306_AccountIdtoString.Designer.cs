@@ -4,14 +4,16 @@ using CourseCleanup.Repository;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace CourseCleanup.Repository.Migrations
 {
     [DbContext(typeof(CourseCleanupContext))]
-    partial class CourseCleanupContextModelSnapshot : ModelSnapshot
+    [Migration("20190208204306_AccountIdtoString")]
+    partial class AccountIdtoString
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -49,8 +51,6 @@ namespace CourseCleanup.Repository.Migrations
                         .HasAnnotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.IdentityColumn);
 
                     b.Property<string>("AccountId");
-
-                    b.Property<string>("CourseCanvasId");
 
                     b.Property<string>("CourseCode");
 

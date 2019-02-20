@@ -101,12 +101,16 @@ namespace CourseCleanup.UnusedCourseSearch
                     foundUnusedCourses.AddRange(unUsedCourses.Select(x => new UnusedCourse()
                     {
                         CourseId = x.Id.ToString(),
+                        CourseCanvasId = x.CanvasId.ToString(),
                         CourseName = x.Name,
-                        CourseSISID = x.CanvasId.ToString(),
+                        //CourseSISID = x.CanvasId.ToString(),
+                        CourseSISID = x.SisCourseId,
                         CourseCode = x.Code,
                         TermId = termId.ToString(),
-                        Term = enrollmentTerms.First(y => y.Id == termId).Name,
+                        Term = enrollmentTerms.First(y => y.Id == termId.ToString()).Name,
+                        //Term = enrollmentTerms.First(y => y.Id == termId).Name,
                         CourseSearchQueueId = nextSearch.Id,
+                        AccountId = x.AccountId
                     }));
                 }
 

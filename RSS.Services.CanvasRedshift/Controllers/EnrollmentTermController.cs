@@ -51,7 +51,8 @@ namespace RSS.Providers.CanvasRedshift.Controllers
                                 enrollmentTerm.EndDate = endDateValue;
                             }
 
-                            enrollmentTerm.Id = long.Parse(reader["id"].ToString());
+                            //enrollmentTerm.Id = long.Parse(reader["id"].ToString());
+                            enrollmentTerm.Id = reader["id"].ToString();
                             enrollmentTerm.CanvasId = long.Parse(reader["canvas_id"].ToString());
                             enrollmentTerm.RootAccountId = long.Parse(reader["root_account_id"].ToString());
                             enrollmentTerm.Name = reader["name"].ToString();

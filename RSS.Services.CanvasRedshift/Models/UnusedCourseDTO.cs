@@ -15,5 +15,6 @@ namespace RSS.Services.CanvasRedshift.Models
         public string Code { get; set; }
         public DateTime? CreatedAt { get; set; }
         public string SisCourseId { get; set; }
+        public string AccountId { get; set; }
     }
 }

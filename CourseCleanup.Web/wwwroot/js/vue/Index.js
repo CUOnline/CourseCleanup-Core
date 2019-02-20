@@ -183,7 +183,7 @@ $(document).ready(function () {
 
                 var termsCsv = termsArray.toString();
 
-                axios.post("Home/AddNewSearch", { StartTermId: this.startTerm, EndTermId: this.endTerm, TermList: termsCsv })
+                axios.post("Home/AddNewSearch", { TermList: termsCsv })
                     .then(response => {
                         location.reload();
                     });

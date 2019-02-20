@@ -140,7 +140,7 @@ namespace CourseCleanup.Web.Controllers
         public async Task<JsonResult> GetEnrollmentTerms()
         {
             var enrollmentTerms = JsonConvert.DeserializeObject<List<EnrollmentTermDTO>>(await canvasRedshiftClient.GetStringAsync("EnrollmentTerm"));
-            return new JsonResult(enrollmentTerms.Where(x => x.EndDate != null).OrderBy(x => x.EndDate));
+            return new JsonResult(enrollmentTerms.Where(x => x.EndDate != null || x.Name.ToLower().Contains("migration") || x.Name.ToLower().Contains("default")).OrderBy(x => x.EndDate));
         }
 
         [HttpPost]

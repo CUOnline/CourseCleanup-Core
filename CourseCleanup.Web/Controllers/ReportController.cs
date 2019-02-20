@@ -5,6 +5,7 @@ using System.Text;
 using System.Linq.Dynamic.Core;
 using System.Threading.Tasks;
 using CourseCleanup.Interface.BLL;
+using CourseCleanup.Models;
 using CourseCleanup.Models.Enums;
 using CourseCleanup.Web.Models;
 using Microsoft.AspNetCore.Mvc;
@@ -53,10 +54,21 @@ namespace CourseCleanup.Web.Controllers
             return View();
         }
 
-        public async Task<JsonResult> GetUnusedCoursesReport(int id, string sortName, string order, int page,
-            int per_page, string filter)
+        public async Task<JsonResult> GetUnusedCoursesReport(int id, string sortName, string order, int page, int per_page, string filter)
         {
-            var unusedCourses = unusedCourseBll.GetAll().Where(x => x.CourseSearchQueueId == id);
+            var unusedCourses = Enumerable.Empty<UnusedCourse>().AsQueryable();
+
+            filter = JsonConvert.DeserializeObject<string>(filter ?? "");
+
+            if (filter != null)
+            {
+                unusedCourses = unusedCourseBll.GetAll().Where(x => x.CourseSearchQueueId == id && JsonConvert.SerializeObject(x).ToLower().Contains(filter.ToLower()));
+            }
+            else
+            {
+                unusedCourses = unusedCourseBll.GetAll().Where(x => x.CourseSearchQueueId == id);
+            }
+
             var totalCourses = (double) unusedCourses.Count();
             var totalPages = Math.Ceiling(totalCourses / per_page);
 
@@ -84,6 +96,7 @@ namespace CourseCleanup.Web.Controllers
                     x.Id,
                     x.DateCreated,
                     x.CourseId,
+                    x.CourseCanvasId,
                     x.CourseName,
                     x.CourseSISID,
                     x.CourseCode,
@@ -135,6 +148,7 @@ namespace CourseCleanup.Web.Controllers
                     x.Id,
                     x.LastUpdated,
                     x.CourseId,
+                    x.CourseCanvasId,
                     x.CourseName,
                     x.CourseSISID,
                     x.CourseCode,

@@ -26,9 +26,9 @@ $(document).ready(function () {
                     }
                 },
                 {
-                    name: 'CourseId',
-                    title: 'Course Id',
-                    sortField: 'CourseId',
+                    name: 'CourseCanvasId',
+                    title: 'Canvas Course Id',
+                    sortField: 'CourseCanvasId',
                     filterable: true,
                     visible: true
                 },

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Text;
 using System.Threading.Tasks;
 using CourseCleanup.BLL;
 using CourseCleanup.Interface.BLL;
@@ -62,7 +63,7 @@ namespace CourseCleanup.UnusedCourseModify
 
             var coursesPendingDeletion = unusedCourseBll.GetAll().Where(x => x.Status == CourseStatus.PendingDeletion).ToList();
             var coursesPendingReactivation = unusedCourseBll.GetAll().Where(x => x.Status == CourseStatus.PendingReactivation).ToList();
-            
+
             client.BaseAddress = new Uri(canvasRedshiftSettings.CanvasUrl);
             client.DefaultRequestHeaders.Accept.Clear();
             client.DefaultRequestHeaders.Accept.Add(
@@ -72,20 +73,30 @@ namespace CourseCleanup.UnusedCourseModify
 
             foreach (var unusedCourse in coursesPendingDeletion)
             {
-                client.DeleteAsync($"courses/{unusedCourse.CourseId}?event=delete").GetAwaiter().GetResult();
+                var result = client.DeleteAsync($"courses/{unusedCourse.CourseId}?event=delete").GetAwaiter().GetResult();
 
-                unusedCourse.Status = CourseStatus.Deleted;
-                unusedCourseBll.Update(unusedCourse);
+                if (result.IsSuccessStatusCode)
+                {
+                    unusedCourse.Status = CourseStatus.Deleted;
+                    unusedCourseBll.Update(unusedCourse);
+                }
             }
 
             foreach (var unusedCourse in coursesPendingReactivation)
             {
-                client.DeleteAsync($"courses/{unusedCourse.CourseId}?event=undelete").GetAwaiter().GetResult();
+                var form = new MultipartFormDataContent();
+                form.Add(new StringContent(unusedCourse.CourseId),"course_ids[]");
+                form.Add(new StringContent("undelete"),"event");
 
-                unusedCourse.Status = CourseStatus.Active;
-                unusedCourseBll.Update(unusedCourse);
+                var result = client.PutAsync($"accounts/{unusedCourse.AccountId}/courses", form).GetAwaiter().GetResult();
+
+                if (result.IsSuccessStatusCode)
+                {
+                    // TODO: This call return an asyncronous task url internal to Canvas.  Need to get the url and wait for it to be completed
+                    unusedCourse.Status = CourseStatus.Active;
+                    unusedCourseBll.Update(unusedCourse);
+                }
             }
-
         }
 
         public static async void GetData()
@@ -102,7 +113,7 @@ namespace CourseCleanup.UnusedCourseModify
                     }
                 }
             }
-            
+
         }
     }
 }

@@ -8,7 +8,7 @@ namespace RSS.Services.CanvasRedshift.Models
 {
     public class EnrollmentTermDTO
     {
-        public long Id { get; set; }
+        public string Id { get; set; }
         public long CanvasId { get; set; }
         public long RootAccountId { get; set; }
         public string Name { get; set; }

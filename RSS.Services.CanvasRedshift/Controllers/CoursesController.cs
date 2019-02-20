@@ -66,7 +66,8 @@ namespace RSS.Services.CanvasRedshift.Controllers
                                 Name = reader["name"].ToString(),
                                 Code = reader["code"].ToString(),
                                 //SisCourseId = reader["sis_course_id"].ToString()
-                                SisCourseId = reader["sis_source_id"].ToString()
+                                SisCourseId = reader["sis_source_id"].ToString(),
+                                AccountId = reader["account_id"].ToString()
                             };
 
                             if (DateTime.TryParse(reader["created_at"].ToString(), out DateTime createdDate))
