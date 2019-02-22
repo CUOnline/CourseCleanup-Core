@@ -8,8 +8,8 @@ namespace CourseCleanup.Interface.BLL
 {
     public interface ISendEmailBLL
     {
-        Task SendUnusedCourseSearchReportFinishedEmailAsync(string status);
-        Task<bool> SendEmail(string toEmail, string emailTemplate, Dictionary<string, string> bodyReplacementValues,
-            Dictionary<string, string> subjectReplacementValues);
+        Task SendUnusedCourseSearchCompletedEmailAsync(DateTime searchStartTimeStamp, DateTime searchEndTimeStamp, int numUnusedCoursesFound, List<string> termNames, int totalErrors, string toEmail);
+
+        Task SendBatchDeleteCoursesCompletedEmailAsync(DateTime deleteStartTimeStamp, DateTime deleteEndTimeStamp, int numUnusedCoursesDeleted, int totalErrors, string toEmail);
     }
 }

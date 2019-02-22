@@ -13,5 +13,6 @@ namespace CourseCleanup.Models
         public SearchStatus Status { get; set; }
         public string StatusMessage { get; set; }
         public string SubmittedByEmail { get; set; }
+        public bool DeleteAllRequested { get; set; }
     }
 }

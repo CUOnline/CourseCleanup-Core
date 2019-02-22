@@ -44,11 +44,14 @@ namespace CourseCleanup.Web.Controllers
         [HttpPost]
         public ActionResult UnusedCoursesReport(SearchQueueResultViewModel viewModel)
         {
+            var courseSearchQueue = courseSearchQueueBll.Get(viewModel.CourseSearchQueueId);
+            courseSearchQueue.DeleteAllRequested = true;
+            courseSearchQueueBll.Update(courseSearchQueue);
+
             var unusedCourses = unusedCourseBll.GetAll()
                 .Where(x => x.CourseSearchQueueId == viewModel.CourseSearchQueueId).ToList();
-
             unusedCourseBll.UpdateStatusRange(unusedCourses, CourseStatus.PendingDeletion);
-
+            
             viewModel.UnusedCourses = unusedCourses;
 
             return View();

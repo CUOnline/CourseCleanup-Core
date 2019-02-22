@@ -3,14 +3,17 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading.Tasks;
 using CourseCleanup.BLL;
+using CourseCleanup.BLL.Email;
 using CourseCleanup.Interface.BLL;
 using CourseCleanup.Interface.Repository;
 using CourseCleanup.Models;
 using CourseCleanup.Models.Enums;
 using CourseCleanup.Repository;
+using CourseCleanup.UnusedCourseModify.Helpers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -23,7 +26,9 @@ namespace CourseCleanup.UnusedCourseModify
     {
         private static ServiceProvider provider;
         private static HttpClient client = new HttpClient();
-        private static CanvasRedshiftSettings canvasRedshiftSettings;
+        private static AppSettings appSettings;
+
+        private const int MAXCOURSESTHATCANBEMODIFIED = 500;
 
         static void Main(string[] args)
         {
@@ -33,12 +38,8 @@ namespace CourseCleanup.UnusedCourseModify
             var configuration = new ConfigurationBuilder()
                 .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true).Build();
 
-            var appSettings = configuration.GetSection("AppSettings");
-            services.Configure<AppSettings>(appSettings);
-
-            var canvasReshiftSettingsSection = configuration.GetSection("CanvasRedshiftSettings");
-            services.Configure<CanvasRedshiftSettings>(canvasReshiftSettingsSection);
-
+            var appSettingsSection = configuration.GetSection("AppSettings");
+            services.Configure<AppSettings>(appSettingsSection);
 
             //DB Context
             services.AddDbContext<CourseCleanupContext>(options =>
@@ -48,47 +49,105 @@ namespace CourseCleanup.UnusedCourseModify
             services.AddScoped<ICourseSearchQueueBLL, CourseSearchQueueBLL>();
             services.AddScoped<IUnusedCourseBLL, UnusedCourseBLL>();
             services.AddScoped<ISendEmailBLL, SendEmailBLL>();
-            services.AddScoped<IEmailQueueBLL, EmailQueueBLL>();
 
             // Repositories
             services.AddScoped<ICourseSearchQueueRepository, CourseSearchQueueRepository>();
             services.AddScoped<IUnusedCourseRepository, UnusedCourseRepository>();
 
             //Setup the provider for resolving dependencies
-            var provider = services.BuildServiceProvider();
-            canvasRedshiftSettings = provider.GetService<IOptions<CanvasRedshiftSettings>>().Value;
+            provider = services.BuildServiceProvider();
+            appSettings = provider.GetService<IOptions<AppSettings>>().Value;
 
             var sendEmailBll = provider.GetService<ISendEmailBLL>();
             var unusedCourseBll = provider.GetService<IUnusedCourseBLL>();
+            var courseSearchQueueBll = provider.GetService<ICourseSearchQueueBLL>();
+
+            client.BaseAddress = new Uri(appSettings.CanvasApiUrl);
+            client.DefaultRequestHeaders.Accept.Clear();
+            client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", appSettings.CanvasApiAuthToken);
+
+            ProcessCoursesPendingDeletion(unusedCourseBll, courseSearchQueueBll, sendEmailBll);
+            ProcessCoursesPendingReactivation(unusedCourseBll, sendEmailBll);
+        }
+
+        static void ProcessCoursesPendingDeletion(IUnusedCourseBLL unusedCourseBll, ICourseSearchQueueBLL courseSearchQueueBll, ISendEmailBLL sendEmailBll)
+        {
+            DateTime deleteStartTimeStamp = DateTime.Now;
 
             var coursesPendingDeletion = unusedCourseBll.GetAll().Where(x => x.Status == CourseStatus.PendingDeletion).ToList();
-            var coursesPendingReactivation = unusedCourseBll.GetAll().Where(x => x.Status == CourseStatus.PendingReactivation).ToList();
-
-            client.BaseAddress = new Uri(canvasRedshiftSettings.CanvasUrl);
-            client.DefaultRequestHeaders.Accept.Clear();
-            client.DefaultRequestHeaders.Accept.Add(
-                new MediaTypeWithQualityHeaderValue("application/json"));
-
-            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", canvasRedshiftSettings.AuthToken);
-
-            foreach (var unusedCourse in coursesPendingDeletion)
+            
+            if (coursesPendingDeletion.Any())
             {
-                var result = client.DeleteAsync($"courses/{unusedCourse.CourseId}?event=delete").GetAwaiter().GetResult();
+                var coursesByAccount = coursesPendingDeletion.GroupBy(x => x.AccountId);
+                var coursesDeleted = 0;
+                var totalErrors = 0;
 
-                if (result.IsSuccessStatusCode)
+                foreach (var courseList in coursesByAccount)
                 {
-                    unusedCourse.Status = CourseStatus.Deleted;
-                    unusedCourseBll.Update(unusedCourse);
+                    var courseChunks = courseList.ToList().ChunkBy(MAXCOURSESTHATCANBEMODIFIED);
+                    foreach (var courseChunk in courseChunks)
+                    {
+                        var courseIds = courseChunk.Select(x => x.CourseId);
+
+                        var form = new MultipartFormDataContent();
+                        foreach (var courseId in courseIds)
+                        {
+                            form.Add(new StringContent(courseId), "course_ids[]");
+                        }
+                        form.Add(new StringContent("delete"), "event");
+
+                        var result = client.PutAsync($"accounts/{courseList.Key}/courses", form).GetAwaiter().GetResult();
+
+                        if (result.IsSuccessStatusCode)
+                        {
+                            coursesDeleted += courseChunk.Count;
+
+                            foreach (var unusedCourse in courseChunk)
+                            {
+                                unusedCourse.Status = CourseStatus.Deleted;
+                            }
+
+                            unusedCourseBll.UpdateRange(courseChunk);
+                        }
+                        else
+                        {
+                            totalErrors++;
+                            Console.WriteLine("broke");
+                        }
+                    }
+                }
+
+                var deleteEndTimeStamp = DateTime.Now;
+
+                // Send email if DELETE ALL was requested
+                var courseSearchQueueIds = coursesPendingDeletion.Where(x => x.CourseSearchQueue.DeleteAllRequested)
+                    .Select(x => x.CourseSearchQueueId).Distinct().ToList();
+
+                if (courseSearchQueueIds.Any())
+                {
+                    foreach (var courseSearchQueueId in courseSearchQueueIds)
+                    {
+                        var courseSearchQueue = courseSearchQueueBll.Get(courseSearchQueueId);
+
+                        sendEmailBll.SendBatchDeleteCoursesCompletedEmailAsync(deleteStartTimeStamp, deleteEndTimeStamp,
+                            coursesDeleted, totalErrors, courseSearchQueue.SubmittedByEmail);
+                    }
                 }
             }
+        }
 
+        static void ProcessCoursesPendingReactivation(IUnusedCourseBLL unusedCourseBll, ISendEmailBLL sendEmailBll)
+        {
+            var coursesPendingReactivation = unusedCourseBll.GetAll().Where(x => x.Status == CourseStatus.PendingReactivation).ToList();
             foreach (var unusedCourse in coursesPendingReactivation)
             {
                 var form = new MultipartFormDataContent();
-                form.Add(new StringContent(unusedCourse.CourseId),"course_ids[]");
-                form.Add(new StringContent("undelete"),"event");
+                form.Add(new StringContent(unusedCourse.CourseId), "course_ids[]");
+                form.Add(new StringContent("undelete"), "event");
 
-                var result = client.PutAsync($"accounts/{unusedCourse.AccountId}/courses", form).GetAwaiter().GetResult();
+                var result = client.PutAsync($"accounts/{unusedCourse.AccountId}/courses", form).GetAwaiter()
+                    .GetResult();
 
                 if (result.IsSuccessStatusCode)
                 {
@@ -97,23 +156,6 @@ namespace CourseCleanup.UnusedCourseModify
                     unusedCourseBll.Update(unusedCourse);
                 }
             }
-        }
-
-        public static async void GetData()
-        {
-            var baseUrl = "http://canvas.ucdenver.edu/api/";
-
-            using (var client = new HttpClient())
-            {
-                using (var res = await client.GetAsync(baseUrl))
-                {
-                    using (var content = res.Content)
-                    {
-                        Console.WriteLine(content.ReadAsStringAsync());
-                    }
-                }
-            }
-
         }
     }
 }
