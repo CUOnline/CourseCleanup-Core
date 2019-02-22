@@ -6,6 +6,7 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading.Tasks;
 using CourseCleanup.BLL;
+using CourseCleanup.BLL.Email;
 using CourseCleanup.Interface.BLL;
 using CourseCleanup.Interface.Repository;
 using CourseCleanup.Models;
@@ -24,7 +25,7 @@ namespace CourseCleanup.UnusedCourseSearch
     {
         private static ServiceProvider provider;
         private static HttpClient client = new HttpClient();
-        private static CanvasRedshiftSettings canvasRedshiftSettings;
+        private static AppSettings appSettings;
 
         static void Main(string[] args)
         {
@@ -34,8 +35,8 @@ namespace CourseCleanup.UnusedCourseSearch
             var configuration = new ConfigurationBuilder()
                 .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true).Build();
 
-            var canvasReshiftSettingsSection = configuration.GetSection("CanvasRedshiftSettings");
-            services.Configure<CanvasRedshiftSettings>(canvasReshiftSettingsSection);
+            var appSettingsSection = configuration.GetSection(nameof(AppSettings));
+            services.Configure<AppSettings>(appSettingsSection);
             
             //DB Context
             services.AddDbContext<CourseCleanupContext>(options =>
@@ -45,7 +46,6 @@ namespace CourseCleanup.UnusedCourseSearch
             services.AddScoped<ICourseSearchQueueBLL, CourseSearchQueueBLL>();
             services.AddScoped<IUnusedCourseBLL, UnusedCourseBLL>();
             services.AddScoped<ISendEmailBLL, SendEmailBLL>();
-            services.AddScoped<IEmailQueueBLL, EmailQueueBLL>();
 
             // Repositories
             services.AddScoped<ICourseSearchQueueRepository, CourseSearchQueueRepository>();
@@ -54,7 +54,7 @@ namespace CourseCleanup.UnusedCourseSearch
             //Setup the provider for resolving dependencies
             provider = services.BuildServiceProvider();
 
-            canvasRedshiftSettings = provider.GetService<IOptions<CanvasRedshiftSettings>>().Value;
+            appSettings = provider.GetService<IOptions<AppSettings>>().Value;
             
             var courseSearchQueueBll = provider.GetService<ICourseSearchQueueBLL>();
             var nextSearch = courseSearchQueueBll.GetNextSearchToProcess();
@@ -64,23 +64,23 @@ namespace CourseCleanup.UnusedCourseSearch
                 courseSearchQueueBll.Update(nextSearch);
                 SearchForUnusedCourses(nextSearch).GetAwaiter().GetResult();
             }
-
-            var sendEmailBll = provider.GetService<ISendEmailBLL>();
-
-            //sendEmailBll.SendUnusedCourseSearchReportFinishedEmailAsync(Enum.GetName(typeof(SearchStatus), nextSearch.Status)).GetAwaiter().GetResult();
         }
 
         private static async Task SearchForUnusedCourses(CourseSearchQueue nextSearch)
         {
+            var startSearchTime = DateTime.Now;
             var courseSearchQueueBll = provider.GetService<ICourseSearchQueueBLL>();
+            var sendEmailBll = provider.GetService<ISendEmailBLL>();
+            var numUnusedCoursesFound = 0;
+            var errors = new List<string>();
+            var enrollmentTermNames = new List<string>();
 
             try
             {
                 var termIds = nextSearch.TermList.Split(",").Select(x => long.Parse(x));
-                //var sendEmailBll = provider.GetService<ISendEmailBLL>();
                 var unusedCourseBll = provider.GetService<IUnusedCourseBLL>();
 
-                client.BaseAddress = new Uri(canvasRedshiftSettings.BaseUrl);
+                client.BaseAddress = new Uri(appSettings.CanvasRedshiftApiUrl);
                 client.DefaultRequestHeaders.Accept.Clear();
                 client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
@@ -89,34 +89,36 @@ namespace CourseCleanup.UnusedCourseSearch
                     JsonConvert.DeserializeObject<List<EnrollmentTermDTO>>(
                         await client.GetStringAsync("EnrollmentTerm"));
 
+                enrollmentTermNames = enrollmentTerms.Where(x => nextSearch.TermList.Contains(x.Id)).Select(x => x.Name).ToList();
+
                 // New list to place the unused courses
                 var foundUnusedCourses = new List<UnusedCourse>();
 
                 // Iterate selected term ids and add unused courses within that term to list
                 foreach (var termId in termIds)
                 {
-                    var unUsedCourses =
-                        JsonConvert.DeserializeObject<List<UnusedCourseDTO>>(
+                    var unUsedCourses = JsonConvert.DeserializeObject<List<UnusedCourseDTO>>(
                             await client.GetStringAsync($"Courses/GetUnusedCourses?termId={termId}"));
+
                     foundUnusedCourses.AddRange(unUsedCourses.Select(x => new UnusedCourse()
                     {
                         CourseId = x.Id.ToString(),
                         CourseCanvasId = x.CanvasId.ToString(),
                         CourseName = x.Name,
-                        //CourseSISID = x.CanvasId.ToString(),
                         CourseSISID = x.SisCourseId,
                         CourseCode = x.Code,
                         TermId = termId.ToString(),
                         Term = enrollmentTerms.First(y => y.Id == termId.ToString()).Name,
-                        //Term = enrollmentTerms.First(y => y.Id == termId).Name,
                         CourseSearchQueueId = nextSearch.Id,
                         AccountId = x.AccountId
                     }));
                 }
 
+                numUnusedCoursesFound = foundUnusedCourses.Count;
+
                 // Separate the existing courses from the new courses
                 var existingCourses = unusedCourseBll.GetAll()
-                    .Where(x => foundUnusedCourses.Any(y => y.CourseId == x.CourseId));
+                    .Where(x => foundUnusedCourses.Any(y => y.CourseId == x.CourseId)).ToList();
 
                 foreach (var course in existingCourses)
                 {
@@ -136,9 +138,14 @@ namespace CourseCleanup.UnusedCourseSearch
             {
                 nextSearch.Status = SearchStatus.Failed;
                 nextSearch.StatusMessage = ex.ToString();
-
+                errors.Add(nextSearch.StatusMessage);
                 courseSearchQueueBll.Update(nextSearch);
             }
+
+            var endSearchTime = DateTime.Now;
+            
+
+            sendEmailBll.SendUnusedCourseSearchCompletedEmailAsync(startSearchTime, endSearchTime, numUnusedCoursesFound, string.Join(", ", enrollmentTermNames), errors, nextSearch.SubmittedByEmail).GetAwaiter().GetResult();
         }
     }
 }

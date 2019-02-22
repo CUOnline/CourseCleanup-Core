@@ -4,6 +4,7 @@ using System.Linq;
 using System.Net.Http.Headers;
 using System.Threading.Tasks;
 using CourseCleanup.BLL;
+using CourseCleanup.BLL.Email;
 using CourseCleanup.Interface.BLL;
 using CourseCleanup.Interface.Repository;
 using CourseCleanup.Models;
@@ -35,10 +36,10 @@ namespace CourseCleanup.Web
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
-            CanvasOAuth canvasOAuth = new CanvasOAuth();
-            var canvasOAuthSection = Configuration.GetSection(nameof(CanvasOAuth));
-            canvasOAuthSection.Bind(canvasOAuth);
-            services.Configure<CanvasOAuth>(canvasOAuthSection);
+            // Setup AppSettings
+            var appSettingsSection = Configuration.GetSection(nameof(AppSettings));
+            AppSettings appSettings = new AppSettings();
+            appSettingsSection.Bind(appSettings);
             services.Configure<AppSettings>(Configuration.GetSection(nameof(AppSettings)));
 
             services.AddAuthentication(options =>
@@ -51,23 +52,18 @@ namespace CourseCleanup.Web
                 options.LogoutPath = "/signout";
             }).AddCanvas(options =>
             {
-                options.UserInformationEndpoint = canvasOAuth.BaseUrl;
-                options.AuthorizationEndpoint = canvasOAuth.AuthorizationEndpoint;
-                options.TokenEndpoint = canvasOAuth.TokenEndpoint;
-                options.ClientId = canvasOAuth.ClientId;
-                options.ClientSecret = canvasOAuth.ClientSecret;
+                options.UserInformationEndpoint = appSettings.CanvasOAuthBaseUrl;
+                options.AuthorizationEndpoint = appSettings.CanvasOAuthAuthorizationEndpointUrl;
+                options.TokenEndpoint = appSettings.CanvasOAuthTokenEndpointUrl;
+                options.ClientId = appSettings.CanvasOAuthClientId;
+                options.ClientSecret = appSettings.CanvasOAuthClientSecret;
             });
-
-            CanvasApiAuth apiAuth = new CanvasApiAuth();
-            var canvasApiAuthSection = Configuration.GetSection(nameof(CanvasApiAuth));
-            canvasApiAuthSection.Bind(apiAuth);
-            services.Configure<CanvasApiAuth>(canvasApiAuthSection);
 
             services.AddHttpClient("CanvasClient", client =>
             {
-                client.BaseAddress = new Uri(apiAuth.BaseUrl);
+                client.BaseAddress = new Uri(appSettings.CanvasApiUrl);
                 client.DefaultRequestHeaders.Add("Accept", "application/json");
-                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiAuth.ApiKey);
+                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", appSettings.CanvasApiAuthToken);
             });
 
             services.Configure<CookiePolicyOptions>(options =>
@@ -81,7 +77,6 @@ namespace CourseCleanup.Web
             services.AddScoped<ICourseSearchQueueBLL, CourseSearchQueueBLL>();
             services.AddScoped<IUnusedCourseBLL, UnusedCourseBLL>();
             services.AddScoped<ISendEmailBLL, SendEmailBLL>();
-            services.AddScoped<IEmailQueueBLL, EmailQueueBLL>();
 
             // Repositories
             services.AddScoped<ICourseSearchQueueRepository, CourseSearchQueueRepository>();
@@ -90,16 +85,9 @@ namespace CourseCleanup.Web
             services.AddDbContext<CourseCleanupContext>(options =>
                 options.UseSqlServer(Configuration.GetConnectionString("DefaultConnection")));
 
-            var redshiftSettings = new CanvasRedshiftSettings();
-            var redshiftSettingsSection = Configuration.GetSection(nameof(CanvasRedshiftSettings));
-            redshiftSettingsSection.Bind(redshiftSettings);
-            services.Configure<CanvasRedshiftSettings>(redshiftSettingsSection);
-
             services.AddHttpClient(HttpClientNames.CanvasRedshiftClient, client =>
             {
-                client.BaseAddress = new Uri(redshiftSettings.BaseUrl);
-                //client.DefaultRequestHeaders.Add("Accept", "application/json");
-                //client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiAuth.ApiKey);
+                client.BaseAddress = new Uri(appSettings.CanvasRedshiftApiUrl);
             });
 
             services.AddMvc().SetCompatibilityVersion(CompatibilityVersion.Version_2_1)

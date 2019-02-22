@@ -25,13 +25,13 @@ namespace CourseCleanup.Web.Controllers
     {
         private readonly ICourseSearchQueueBLL courseSearchQueueBll;
         private readonly HttpClient canvasRedshiftClient;
-        private readonly CanvasApiAuth canvasApiAuth;
+        private readonly AppSettings appSettings;
 
-        public HomeController(ICourseSearchQueueBLL courseSearchQueueBll, IHttpClientFactory httpClientFactory, IOptions<CanvasApiAuth> authOptions)
+        public HomeController(ICourseSearchQueueBLL courseSearchQueueBll, IHttpClientFactory httpClientFactory, IOptions<AppSettings> appSettings)
         {
             this.courseSearchQueueBll = courseSearchQueueBll;
             this.canvasRedshiftClient = httpClientFactory.CreateClient(HttpClientNames.CanvasRedshiftClient);
-            this.canvasApiAuth = authOptions.Value;
+            this.appSettings = appSettings.Value;
         }
 
         public async Task<IActionResult> Index()
@@ -44,16 +44,8 @@ namespace CourseCleanup.Web.Controllers
             }
 
             var model = new HomeViewModel();
-            if (HttpContext.User.IsInRole(RoleNames.AccountAdmin) || HttpContext.User.IsInRole(RoleNames.HelpDesk))
-            {
-                model.Authorized = true;
-                model.BaseCanvasUrl = canvasApiAuth.BaseUrl;
-            }
-            else
-            {
-                // return unauthorized view
-                model.Authorized = false;
-            }
+            model.Authorized = HttpContext.User.IsInRole(RoleNames.AccountAdmin);
+
             return View();
         }
 

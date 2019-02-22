@@ -11,43 +11,57 @@ namespace CourseCleanup.BLL.Email
 {
     public class SendEmailBLL : BaseEmailBLL, ISendEmailBLL
     {
+        private readonly AppSettings appSettings;
+
         public SendEmailBLL(IOptions<AppSettings> appSettingsConfiguration) : base(appSettingsConfiguration)
         {
+            this.appSettings = appSettingsConfiguration.Value;
         }
 
-        public async Task SendUnusedCourseSearchCompletedEmailAsync(DateTime searchStartTimeStamp, DateTime searchEndTimeStamp, int numUnusedCoursesFound, List<string> termNames, int totalErrors, string toEmail)
+        public async Task SendUnusedCourseSearchCompletedEmailAsync(DateTime searchStartTimeStamp, DateTime searchEndTimeStamp, int numUnusedCoursesFound, string termNames, List<string> errors, string toEmail)
         {
             var status = "";
             var statusText = "";
 
-            if (totalErrors > 0)
+            if (errors.Count > 0)
             {
                 status = "With Errors";
-                statusText = "To view these errors, please navigate to the report on the website.";
+                statusText = string.Join("<BR>", errors);
             }
+
+            var subjectReplacements = new Dictionary<string, string>
+            {
+                {"@STATUS", status}
+            };
 
             var bodyReplacements = new Dictionary<string, string>
             {
-                { "@DELETESTARTTIMESTAMP", searchStartTimeStamp.ToString("f") },
-                { "@DELETEENDTIMESTAMP", searchEndTimeStamp.ToString("f") },
+                { "@SEARCHSTARTTIMESTAMP", searchStartTimeStamp.ToString("f") },
+                { "@SEARCHENDTIMESTAMP", searchEndTimeStamp.ToString("f") },
                 { "@STATUS", status},
-                { "@STATUSTEXT", statusText },
-                { "@TOTALERRORS", totalErrors.ToString() },
-                { "@NUMUNUSEDCOURSESFOUND", numUnusedCoursesFound.ToString() }
+                { "@ERRORTEXT", statusText },
+                { "@TOTALERRORS", errors.Count.ToString() },
+                { "@NUMUNUSEDCOURSESFOUND", numUnusedCoursesFound.ToString() },
+                { "@TERMNAMES", termNames }
             };
 
-            await SendEmailAsync("CUOnline_UnusedCourseSearch", toEmail, bodyReplacements);
+            await SendEmailAsync(EmailTemplate.UnusedCourseSearchCompleted, toEmail, subjectReplacements, bodyReplacements);
+
+            if (toEmail != appSettings.AdminEmail)
+            {
+                await SendEmailAsync(EmailTemplate.UnusedCourseSearchCompleted, appSettings.AdminEmail, subjectReplacements, bodyReplacements);
+            }
         }
 
-        public async Task SendBatchDeleteCoursesCompletedEmailAsync(DateTime deleteStartTimeStamp, DateTime deleteEndTimeStamp, int numUnusedCoursesDeleted, int totalErrors, string toEmail)
+        public async Task SendBatchDeleteCoursesCompletedEmailAsync(DateTime deleteStartTimeStamp, DateTime deleteEndTimeStamp, int numUnusedCoursesDeleted, List<string> errors, string toEmail)
         {
             var status = "";
             var statusText = "";
 
-            if (totalErrors > 0)
+            if (errors.Count > 0)
             {
                 status = "With Errors";
-                statusText = "To view these errors, please navigate to the report on the website.";
+                statusText = string.Join("<BR>", errors);
             }
 
             var subjectReplacements = new Dictionary<string, string>
@@ -60,12 +74,17 @@ namespace CourseCleanup.BLL.Email
                 { "@DELETESTARTTIMESTAMP", deleteStartTimeStamp.ToString("f") },
                 { "@DELETEENDTIMESTAMP", deleteEndTimeStamp.ToString("f") },
                 { "@STATUS", status},
-                { "@STATUSTEXT", statusText },
-                { "@TOTALERRORS", totalErrors.ToString() },
+                { "@ERRORTEXT", statusText },
+                { "@TOTALERRORS", errors.Count.ToString() },
                 { "@NUMUNUSEDCOURSESDELETED", numUnusedCoursesDeleted.ToString() }
             };
 
-            await SendEmailAsync("CUOnline_UnusedCourseSearch", toEmail, subjectReplacements, bodyReplacements);
+            await SendEmailAsync(EmailTemplate.BatchDeleteCoursesCompleted, toEmail, subjectReplacements, bodyReplacements);
+
+            if (toEmail != appSettings.AdminEmail)
+            {
+                await SendEmailAsync(EmailTemplate.BatchDeleteCoursesCompleted, appSettings.AdminEmail, subjectReplacements, bodyReplacements);
+            }
         }
     }
 }

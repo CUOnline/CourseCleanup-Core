@@ -8,6 +8,7 @@ namespace CourseCleanup.Models
 {
     public class EmailTemplate
     {
-        public const string UnusedCourseSearch = "CUOnline_UnusedCourseSearch";
+        public const string UnusedCourseSearchCompleted = "CUOnline_UnusedCourseSearchCompleted";
+        public const string BatchDeleteCoursesCompleted = "CUOnline_BatchDeleteCoursesCompleted";
     }
 }

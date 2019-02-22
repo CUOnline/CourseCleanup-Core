@@ -28,7 +28,7 @@ namespace CourseCleanup.UnusedCourseModify
         private static HttpClient client = new HttpClient();
         private static AppSettings appSettings;
 
-        private const int MAXCOURSESTHATCANBEMODIFIED = 500;
+        private const int MAXCOURSESTHATCANBEMODIFIED = 5;
 
         static void Main(string[] args)
         {
@@ -81,7 +81,7 @@ namespace CourseCleanup.UnusedCourseModify
             {
                 var coursesByAccount = coursesPendingDeletion.GroupBy(x => x.AccountId);
                 var coursesDeleted = 0;
-                var totalErrors = 0;
+                var errors = new List<string>();
 
                 foreach (var courseList in coursesByAccount)
                 {
@@ -112,26 +112,31 @@ namespace CourseCleanup.UnusedCourseModify
                         }
                         else
                         {
-                            totalErrors++;
-                            Console.WriteLine("broke");
+                            string error = $"{(int)result.StatusCode}: {result.ReasonPhrase}. {result.RequestMessage.RequestUri}";
+                            if (!errors.Contains(error))
+                            {
+                                errors.Add(error);
+                            }
                         }
                     }
                 }
 
                 var deleteEndTimeStamp = DateTime.Now;
 
-                // Send email if DELETE ALL was requested
-                var courseSearchQueueIds = coursesPendingDeletion.Where(x => x.CourseSearchQueue.DeleteAllRequested)
-                    .Select(x => x.CourseSearchQueueId).Distinct().ToList();
-
-                if (courseSearchQueueIds.Any())
+                var courseSearchQueueIds = coursesPendingDeletion.Select(x => x.CourseSearchQueueId).Distinct().ToList();
+                
+                foreach (var courseSearchQueueId in courseSearchQueueIds)
                 {
-                    foreach (var courseSearchQueueId in courseSearchQueueIds)
+                    // Send email if DELETE ALL was requested
+                    var courseSearchQueue = courseSearchQueueBll.Get(courseSearchQueueId);
+                    if (courseSearchQueue.DeleteAllRequested)
                     {
-                        var courseSearchQueue = courseSearchQueueBll.Get(courseSearchQueueId);
-
-                        sendEmailBll.SendBatchDeleteCoursesCompletedEmailAsync(deleteStartTimeStamp, deleteEndTimeStamp,
-                            coursesDeleted, totalErrors, courseSearchQueue.SubmittedByEmail);
+                        sendEmailBll.SendBatchDeleteCoursesCompletedEmailAsync(deleteStartTimeStamp,
+                                deleteEndTimeStamp, coursesDeleted, errors, 
+                            courseSearchQueue.SubmittedByEmail).GetAwaiter().GetResult();
+                        
+                        courseSearchQueue.DeleteAllRequested = false;
+                        courseSearchQueueBll.Update(courseSearchQueue);
                     }
                 }
             }

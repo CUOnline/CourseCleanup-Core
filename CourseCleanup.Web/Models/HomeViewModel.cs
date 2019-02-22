@@ -24,6 +24,5 @@ namespace CourseCleanup.Web.Models
         public IEnumerable<CourseSearchQueue> CourseSearchQueues { get; set; }
 
         public bool Authorized { get; set; }
-        public string BaseCanvasUrl { get; set; }
     }
 }

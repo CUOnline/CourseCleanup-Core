@@ -4,14 +4,16 @@ using CourseCleanup.Repository;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace CourseCleanup.Repository.Migrations
 {
     [DbContext(typeof(CourseCleanupContext))]
-    partial class CourseCleanupContextModelSnapshot : ModelSnapshot
+    [Migration("20190222191806_AddDeleteAllRequestToCourseSearchQueue")]
+    partial class AddDeleteAllRequestToCourseSearchQueue
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

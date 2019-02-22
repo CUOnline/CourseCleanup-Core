@@ -4,6 +4,7 @@ using System.Data;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using CourseCleanup.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using Npgsql;
@@ -28,7 +29,7 @@ namespace RSS.Services.CanvasRedshift.Controllers
             // 3. No assignments, 4. No modules, 5. No Files, 6. No Pages, 7. No Discussions, and 8. No Quizzes.. it should be returned.
             var result = new List<UnusedCourseDTO>();
 
-            var conn = new NpgsqlConnection(appSettings.RedshiftConnectionString);
+            var conn = new NpgsqlConnection(appSettings.CanvasRedshiftConnectionString);
             try
             {
                 conn.Open();

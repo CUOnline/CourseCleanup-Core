@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using CourseCleanup.Interface.Repository;
 using CourseCleanup.Models;
 using CourseCleanup.Models.Enums;
+using Microsoft.EntityFrameworkCore;
 
 namespace CourseCleanup.Repository
 {

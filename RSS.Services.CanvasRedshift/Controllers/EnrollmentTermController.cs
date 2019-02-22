@@ -5,6 +5,7 @@ using System.Data.Common;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using CourseCleanup.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using Npgsql;
@@ -26,7 +27,7 @@ namespace RSS.Providers.CanvasRedshift.Controllers
         {
             var result = new List<EnrollmentTermDTO>();
 
-            var conn = new NpgsqlConnection(appSettings.RedshiftConnectionString);
+            var conn = new NpgsqlConnection(appSettings.CanvasRedshiftConnectionString);
             try
             {
                 conn.Open();
