@@ -40,12 +40,22 @@ namespace CourseCleanup.Web.Controllers
 
             if (!authenticateResult.Succeeded)
             {
-                return RedirectToAction("ExternalLogin");
+                return RedirectToAction(nameof(ExternalLogin));
             }
 
             var model = new HomeViewModel();
             model.Authorized = HttpContext.User.IsInRole(RoleNames.AccountAdmin);
 
+            if (!model.Authorized)
+            {
+                return RedirectToAction(nameof(AccessDenied));
+            }
+
+            return View();
+        }
+
+        public IActionResult AccessDenied()
+        {
             return View();
         }
 
