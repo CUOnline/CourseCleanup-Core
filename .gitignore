@@ -73,7 +73,10 @@ _[Ss]cripts
 *.nupkg
 *.ncrunchsolution
 *.dot[Cc]over
-appsettings.*
+appsettings.json
+appsettings.Development.json
+appsettings.Staging.json
+appsettings.Production.json
 AppSettings.config
 ConnectionStrings.config
 /.vs
