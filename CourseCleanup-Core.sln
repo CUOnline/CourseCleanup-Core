@@ -19,7 +19,12 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CourseCleanup.Web", "Course
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CourseCleanup.UnusedCourseSearch", "CourseCleanup.UnusedCourseSearch\CourseCleanup.UnusedCourseSearch.csproj", "{D930409B-BE42-497A-A2FD-54560F03C2AA}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CourseCleanup.UnusedCourseModify", "CourseCleanup.UnusedCourseModify\CourseCleanup.UnusedCourseModify.csproj", "{406DED52-0DDB-4E30-99D0-B1AA540926F4}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CourseCleanup.UnusedCourseModify", "CourseCleanup.UnusedCourseModify\CourseCleanup.UnusedCourseModify.csproj", "{406DED52-0DDB-4E30-99D0-B1AA540926F4}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Releases", "Releases", "{9F854D80-233E-49C4-8F67-8FC66B37D97F}"
+	ProjectSection(SolutionItems) = preProject
+		Releases\Release_1.0.sql = Releases\Release_1.0.sql
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
